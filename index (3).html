@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Weather Visualization</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+    <div id="loading-screen">Loading...</div>
+    <div id="scene-container"></div>
+    <div id="weather-info">
+        <p id="weather-condition"></p>
+        <p id="temperature"></p>
+        <p id="wind-speed"></p>
+    </div>
+    
+    <script>
+        // Initialize Three.js Scene
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.getElementById('scene-container').appendChild(renderer.domElement);
+
+        // Add Lighting
+        const ambientLight = new THREE.AmbientLight(0x404040, 2);
+        scene.add(ambientLight);
+
+        const pointLight = new THREE.PointLight(0xffffff, 1);
+        pointLight.position.set(10, 10, 10);
+        scene.add(pointLight);
+
+        // Add Earth Sphere
+        const geometry = new THREE.SphereGeometry(5, 32, 32);
+        const material = new THREE.MeshPhongMaterial({ color: 0x00ff00 });
+        const sphere = new THREE.Mesh(geometry, material);
+        scene.add(sphere);
+
+        camera.position.z = 15;
+
+        // Fetch Weather Data Based on User's Location
+        const apiKey = 'f0cdc9f0b5039240faf47f33f0df3fff'; // Your OpenWeather API key
+
+        function fetchWeatherByLocation(latitude, longitude) {
+            const apiUrl = `https://api.openweathermap.org/data/2.5/weather?lat=${latitude}&lon=${longitude}&appid=${apiKey}&units=metric`;
+
+            fetch(apiUrl)
+                .then(response => response.json())
+                .then(data => {
+                    const weather = data.weather[0].main;
+                    const temperature = data.main.temp;
+                    const windSpeed = data.wind.speed;
+                    const cityName = data.name;
+
+                    // Update UI
+                    document.getElementById('weather-condition').textContent = `Weather: ${weather}`;
+                    document.getElementById('temperature').textContent = `Temperature: ${temperature}°C`;
+                    document.getElementById('wind-speed').textContent = `Wind: ${windSpeed} km/h`;
+
+                    // Update Weather Effects
+                    updateWeatherEffects(weather);
+                })
+                .catch(error => console.error('Error fetching weather data:', error));
+        }
+
+        // Get User's Location
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const latitude = position.coords.latitude;
+                    const longitude = position.coords.longitude;
+                    fetchWeatherByLocation(latitude, longitude);
+                },
+                (error) => {
+                    console.error('Error getting location:', error);
+                    // Fallback to a default location (e.g., London)
+                    fetchWeatherByLocation(51.5074, -0.1278); // London coordinates
+                }
+            );
+        } else {
+            console.error('Geolocation is not supported by this browser.');
+            // Fallback to a default location (e.g., London)
+            fetchWeatherByLocation(51.5074, -0.1278); // London coordinates
+        }
+
+        // Weather Effects
+        function updateWeatherEffects(weather) {
+            if (weather === 'Rain') {
+                createRain();
+            } else if (weather === 'Snow') {
+                createSnow();
+            } else if (weather === 'Thunderstorm') {
+                createLightning();
+            }
+        }
+
+        function createRain() {
+            const rainGeometry = new THREE.BufferGeometry();
+            const rainCount = 1000;
+            const rainPositions = new Float32Array(rainCount * 3);
+
+            for (let i = 0; i < rainCount; i++) {
+                rainPositions[i * 3] = (Math.random() - 0.5) * 30;
+                rainPositions[i * 3 + 1] = Math.random() * 20;
+                rainPositions[i * 3 + 2] = (Math.random() - 0.5) * 30;
+            }
+
+            rainGeometry.setAttribute('position', new THREE.BufferAttribute(rainPositions, 3));
+            const rainMaterial = new THREE.PointsMaterial({ color: 0xaaaaaa, size: 0.1 });
+            const rain = new THREE.Points(rainGeometry, rainMaterial);
+            scene.add(rain);
+        }
+
+        function createSnow() {
+            // Similar to rain but with white particles
+        }
+
+        function createLightning() {
+            // Add lightning effects using shaders or light flashes
+        }
+
+        // User Interaction
+        let isDragging = false;
+        let previousMousePosition = { x: 0, y: 0 };
+
+        document.addEventListener('mousedown', () => isDragging = true);
+        document.addEventListener('mouseup', () => isDragging = false);
+        document.addEventListener('mousemove', (event) => {
+            if (isDragging) {
+                const deltaX = event.clientX - previousMousePosition.x;
+                const deltaY = event.clientY - previousMousePosition.y;
+                sphere.rotation.y += deltaX * 0.01;
+                sphere.rotation.x += deltaY * 0.01;
+            }
+            previousMousePosition = { x: event.clientX, y: event.clientY };
+        });
+
+        // Animation Loop
+        function animate() {
+            requestAnimationFrame(animate);
+            sphere.rotation.y += 0.01;
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        // Hide Loading Screen
+        window.onload = () => {
+            document.getElementById('loading-screen').style.display = 'none';
+        };
+    </script>
+</body>
+</html>
