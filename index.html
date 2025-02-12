@@ -1,87 +1,32 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D Weather Website</title>
-    <style>
-        body, html {
-            margin: 0;
-            padding: 0;
-            overflow: hidden;
-            font-family: Arial, sans-serif;
-        }
-        #scene-container {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-        }
-        .weather-info {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            padding: 20px;
-            border-radius: 10px;
-            color: white;
-            z-index: 10;
-        }
-        #loading-screen {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: #000;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            color: white;
-            z-index: 100;
-        }
-    </style>
-</head>
-<body>
-    <div id="loading-screen">Loading...</div>
-    <div id="scene-container"></div>
-    <div class="weather-info">
-        <h2 id="weather-condition">Weather: Sunny</h2>
-        <p id="temperature">Temperature: 25°C</p>
-        <p id="wind-speed">Wind: 10 km/h</p>
-    </div>
+<script>
+    // Initialize Three.js Scene
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.getElementById('scene-container').appendChild(renderer.domElement);
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r146/three.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.10.4/gsap.min.js"></script>
-    <script>
-        // Initialize Three.js Scene
-        const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        document.getElementById('scene-container').appendChild(renderer.domElement);
+    // Add Lighting
+    const ambientLight = new THREE.AmbientLight(0x404040, 2);
+    scene.add(ambientLight);
 
-        // Add Lighting
-        const ambientLight = new THREE.AmbientLight(0x404040, 2);
-        scene.add(ambientLight);
+    const pointLight = new THREE.PointLight(0xffffff, 1);
+    pointLight.position.set(10, 10, 10);
+    scene.add(pointLight);
 
-        const pointLight = new THREE.PointLight(0xffffff, 1);
-        pointLight.position.set(10, 10, 10);
-        scene.add(pointLight);
+    // Add Earth Sphere
+    const geometry = new THREE.SphereGeometry(5, 32, 32);
+    const material = new THREE.MeshPhongMaterial({ color: 0x00ff00 });
+    const sphere = new THREE.Mesh(geometry, material);
+    scene.add(sphere);
 
-        // Add Earth Sphere
-        const geometry = new THREE.SphereGeometry(5, 32, 32);
-        const material = new THREE.MeshPhongMaterial({ color: 0x00ff00 });
-        const sphere = new THREE.Mesh(geometry, material);
-        scene.add(sphere);
+    camera.position.z = 15;
 
-        camera.position.z = 15;
+    // Fetch Weather Data Based on User's Location
+    const apiKey = 'f0cdc9f0b5039240faf47f33f0df3fff'; // Your OpenWeather API key
 
-        // Fetch Weather Data
-        const apiKey = 'f0cdc9f0b5039240faf47f33f0df3fff'; // Your OpenWeather API key
-        const apiUrl = `https://api.openweathermap.org/data/2.5/weather?q=London&appid=${apiKey}&units=metric`;
+    function fetchWeatherByLocation(latitude, longitude) {
+        const apiUrl = `https://api.openweathermap.org/data/2.5/weather?lat=${latitude}&lon=${longitude}&appid=${apiKey}&units=metric`;
 
         fetch(apiUrl)
             .then(response => response.json())
@@ -89,6 +34,7 @@
                 const weather = data.weather[0].main;
                 const temperature = data.main.temp;
                 const windSpeed = data.wind.speed;
+                const cityName = data.name;
 
                 // Update UI
                 document.getElementById('weather-condition').textContent = `Weather: ${weather}`;
@@ -99,71 +45,90 @@
                 updateWeatherEffects(weather);
             })
             .catch(error => console.error('Error fetching weather data:', error));
+    }
 
-        // Weather Effects
-        function updateWeatherEffects(weather) {
-            if (weather === 'Rain') {
-                createRain();
-            } else if (weather === 'Snow') {
-                createSnow();
-            } else if (weather === 'Thunderstorm') {
-                createLightning();
+    // Get User's Location
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const latitude = position.coords.latitude;
+                const longitude = position.coords.longitude;
+                fetchWeatherByLocation(latitude, longitude);
+            },
+            (error) => {
+                console.error('Error getting location:', error);
+                // Fallback to a default location (e.g., London)
+                fetchWeatherByLocation(51.5074, -0.1278); // London coordinates
             }
+        );
+    } else {
+        console.error('Geolocation is not supported by this browser.');
+        // Fallback to a default location (e.g., London)
+        fetchWeatherByLocation(51.5074, -0.1278); // London coordinates
+    }
+
+    // Weather Effects
+    function updateWeatherEffects(weather) {
+        if (weather === 'Rain') {
+            createRain();
+        } else if (weather === 'Snow') {
+            createSnow();
+        } else if (weather === 'Thunderstorm') {
+            createLightning();
+        }
+    }
+
+    function createRain() {
+        const rainGeometry = new THREE.BufferGeometry();
+        const rainCount = 1000;
+        const rainPositions = new Float32Array(rainCount * 3);
+
+        for (let i = 0; i < rainCount; i++) {
+            rainPositions[i * 3] = (Math.random() - 0.5) * 30;
+            rainPositions[i * 3 + 1] = Math.random() * 20;
+            rainPositions[i * 3 + 2] = (Math.random() - 0.5) * 30;
         }
 
-        function createRain() {
-            const rainGeometry = new THREE.BufferGeometry();
-            const rainCount = 1000;
-            const rainPositions = new Float32Array(rainCount * 3);
+        rainGeometry.setAttribute('position', new THREE.BufferAttribute(rainPositions, 3));
+        const rainMaterial = new THREE.PointsMaterial({ color: 0xaaaaaa, size: 0.1 });
+        const rain = new THREE.Points(rainGeometry, rainMaterial);
+        scene.add(rain);
+    }
 
-            for (let i = 0; i < rainCount; i++) {
-                rainPositions[i * 3] = (Math.random() - 0.5) * 30;
-                rainPositions[i * 3 + 1] = Math.random() * 20;
-                rainPositions[i * 3 + 2] = (Math.random() - 0.5) * 30;
-            }
+    function createSnow() {
+        // Similar to rain but with white particles
+    }
 
-            rainGeometry.setAttribute('position', new THREE.BufferAttribute(rainPositions, 3));
-            const rainMaterial = new THREE.PointsMaterial({ color: 0xaaaaaa, size: 0.1 });
-            const rain = new THREE.Points(rainGeometry, rainMaterial);
-            scene.add(rain);
+    function createLightning() {
+        // Add lightning effects using shaders or light flashes
+    }
+
+    // User Interaction
+    let isDragging = false;
+    let previousMousePosition = { x: 0, y: 0 };
+
+    document.addEventListener('mousedown', () => isDragging = true);
+    document.addEventListener('mouseup', () => isDragging = false);
+    document.addEventListener('mousemove', (event) => {
+        if (isDragging) {
+            const deltaX = event.clientX - previousMousePosition.x;
+            const deltaY = event.clientY - previousMousePosition.y;
+            sphere.rotation.y += deltaX * 0.01;
+            sphere.rotation.x += deltaY * 0.01;
         }
+        previousMousePosition = { x: event.clientX, y: event.clientY };
+    });
 
-        function createSnow() {
-            // Similar to rain but with white particles
-        }
+    // Animation Loop
+    function animate() {
+        requestAnimationFrame(animate);
+        sphere.rotation.y += 0.01;
+        renderer.render(scene, camera);
+    }
+    animate();
 
-        function createLightning() {
-            // Add lightning effects using shaders or light flashes
-        }
-
-        // User Interaction
-        let isDragging = false;
-        let previousMousePosition = { x: 0, y: 0 };
-
-        document.addEventListener('mousedown', () => isDragging = true);
-        document.addEventListener('mouseup', () => isDragging = false);
-        document.addEventListener('mousemove', (event) => {
-            if (isDragging) {
-                const deltaX = event.clientX - previousMousePosition.x;
-                const deltaY = event.clientY - previousMousePosition.y;
-                sphere.rotation.y += deltaX * 0.01;
-                sphere.rotation.x += deltaY * 0.01;
-            }
-            previousMousePosition = { x: event.clientX, y: event.clientY };
-        });
-
-        // Animation Loop
-        function animate() {
-            requestAnimationFrame(animate);
-            sphere.rotation.y += 0.01;
-            renderer.render(scene, camera);
-        }
-        animate();
-
-        // Hide Loading Screen
-        window.onload = () => {
-            document.getElementById('loading-screen').style.display = 'none';
-        };
-    </script>
-</body>
-</html>
+    // Hide Loading Screen
+    window.onload = () => {
+        document.getElementById('loading-screen').style.display = 'none';
+    };
+        </script>
